@@ -8,8 +8,47 @@ require('dotenv').config();
 var auth = require('../services/authentication');
 var checkRole = require('../services/checkRole');
 
-// Post para Usuario
-router.post('/registraUsuario', (req, res) => {
+router.post('/signupCustomer', (req, res) => {
+    let user = req.body;
+    query = "select EMAIL_CLI from cliente where EMAIL_CLI = ?;"
+    connection.query(query, [user.EMAIL_CLI], (err, results) => {
+        if (!err) {
+            if (results.length <= 0) {
+                console.log(results)
+                query = "insert into cliente (RUN_CLI,DV_CLI, PNOMBRE_CLI, SNOMBRE_CLI, APPATERNO_CLI, APMATERNO_CLI, EMAIL_CLI, TELEFONO_CLI, DIRECCION_CLI, CIUDAD) VALUES (?,?,?,?,?,?,?,?,?,?)";
+                connection.query(query, [
+                    user.RUN_CLI,
+                    user.DV_CLI,
+                    user.PNOMBRE_CLI,
+                    user.SNOMBRE_CLI,
+                    user.APPATERNO_CLI,
+                    user.APMATERNO_CLI,
+                    user.EMAIL_CLI,
+                    user.TELEFONO_CLI,
+                    user.DIRECCION_CLI,
+                    user.CIUDAD],
+                    (err, results) => {
+                        if (!err) {
+                            return res.status(200).json({ message: "REGISTRO EXITOSO" });
+                        }
+                        else {
+                            return res.status(500).json(err);
+                        }
+                    })
+
+            } else {
+                return res.status(400).json({ message: "CORREO EXISTE." });
+            }
+        } else {
+            return res.status(500).json(err);
+        }
+
+    })
+
+
+})
+
+router.post('/signupUser', (req, res) => {
     let user = req.body;
     query = "select EMAIL_USUARIO from USUARIO where EMAIL_USUARIO = ?;"
     connection.query(query, [user.EMAIL_USUARIO], (err, results) => {
@@ -40,7 +79,23 @@ router.post('/registraUsuario', (req, res) => {
     })
 })
 
-router.post('/loginUsuario', (req, res) => {
+
+router.get('/usuarios', (req, res) => {
+    query = "call sp_listar_clientes(?)"
+    connection.query(query, true, (err, results, fields) => {
+        console.log('prueba')
+        if (err) {
+            console.log('entre al if')
+            return res.status(500).json(err);
+        } else {
+            console.log('entre al else')
+            return res.json(results);
+        }
+    })
+})
+
+
+router.post('/loginUser', (req, res) => {
     const user = req.body;
     query = "SELECT CONTRASENA_USUARIO, EMAIL_USUARIO FROM USUARIO WHERE EMAIL_USUARIO = ?";
     connection.query(query, [user.EMAIL_USUARIO], (err, results) => {
@@ -70,7 +125,17 @@ router.post('/loginUsuario', (req, res) => {
     })
 })
 
-router.post('/cambiarContrasena', (req, res) => {
+
+
+var transporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+        user: process.env.EMAIL,
+        pass: process.env.PASSWORD
+    }
+})
+
+router.post('/forgotPassword', (req, res) => {
     const user = req.body;
     query = "SELECT EMAIL_USUARIO, CONTRASENA_USUARIO FROM USUARIO WHERE EMAIL_USUARIO =?";
     connection.query(query, [user.EMAIL_USUARIO], (err, results) => {
@@ -105,7 +170,19 @@ router.post('/cambiarContrasena', (req, res) => {
 
 })
 
-router.patch('/editarNombreUsuario', (req, res) => {
+router.get('/getUser',auth.authenticateToken, (req, res) => {
+    var query = "select ID_USUARIO, NOMBRE_USUARIO, EMAIL_USUARIO, ROL_USUARIO FROM USUARIO WHERE ROL_USUARIO ='admin'";
+    connection.query(query, (err, results) => {
+        if (!err) {
+            return res.status(200).json(results);
+        }
+        else {
+            return res.status(500).json(err);
+        }
+    })
+})
+
+router.patch('/updateUser', (req, res) => {
     let user = req.body;
     var query = "UPDATE USUARIO SET NOMBRE_USUARIO = ? WHERE ID=?";
     connection.query(query, [user.NOMBRE_USUARIO, user.ID_USUARIO], (err, rsults) => {
@@ -121,55 +198,13 @@ router.patch('/editarNombreUsuario', (req, res) => {
     })
 })
 
-
-
-
-
-
-//Get para Usuario
-
-/* Get con procedimiento de almacenado */
-router.get('/getUsuario', (req, res) => {
-    query = "call sp_listar_clientes(?)"
-    connection.query(query, true, (err, results, fields) => {
-        console.log('prueba')
-        if (err) {
-            console.log('entre al if')
-            return res.status(500).json(err);
-        } else {
-            console.log('entre al else')
-            return res.json(results);
-        }
-    })
-})
-
-/* Get con query en duro */
-router.get('/getUser',auth.authenticateToken, (req, res) => {
-    var query = "select ID_USUARIO, NOMBRE_USUARIO, EMAIL_USUARIO, ROL_USUARIO FROM USUARIO WHERE ROL_USUARIO =?";
-    connection.query(query, (err, results) => {
-        if (!err) {
-            return res.status(200).json(results);
-        }
-        else {
-            return res.status(500).json(err);
-        }
-    })
-})
-
-//Otros metodos
-
-/*Enviar mail con credenciales*/
-var transporter = nodemailer.createTransport({
-    service: 'gmail',
-    auth: {
-        user: process.env.EMAIL,
-        pass: process.env.PASSWORD
-    }
-})
-
-/*Check Token*/
 router.get('/checkToken', (req,res)=> {
     return res.status(200).json({message: "true"});
 })
+
+
+
+
+
 
 module.exports = router;
